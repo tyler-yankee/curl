@@ -551,6 +551,13 @@ option(CURL_LINT "Run lint checks while building" OFF)
 
 find_package(Perl)
 
+option(BUILD_TESTING "Build tests" ON)
+if(BUILD_TESTING AND Perl_FOUND)
+  set(CURL_BUILD_TESTING ON)
+else()
+  set(CURL_BUILD_TESTING OFF)
+endif()
+
 if(PERL_EXECUTABLE)
   add_custom_target(curl-ca-bundle
     COMMENT "Generating a fresh ca-bundle.crt" VERBATIM USES_TERMINAL
@@ -1683,18 +1690,13 @@ check_function_exists("sendmmsg"      HAVE_SENDMMSG)
 check_symbol_exists("memrchr"         "string.h" HAVE_MEMRCHR)
 check_symbol_exists("alarm"           "unistd.h" HAVE_ALARM)
 check_symbol_exists("fcntl"           "fcntl.h" HAVE_FCNTL)
-check_function_exists("getppid"       HAVE_GETPPID)
-check_function_exists("utimes"        HAVE_UTIMES)
 
 check_symbol_exists("closesocket"     "${CURL_INCLUDES}" HAVE_CLOSESOCKET)  # winsock2.h
 check_symbol_exists("sigsetjmp"       "setjmp.h" HAVE_SIGSETJMP)
-check_function_exists("getpass_r"     HAVE_GETPASS_R)
 check_function_exists("getpwuid"      HAVE_GETPWUID)
 check_function_exists("getpwuid_r"    HAVE_GETPWUID_R)
 check_function_exists("geteuid"       HAVE_GETEUID)
-check_function_exists("utime"         HAVE_UTIME)
 check_symbol_exists("gmtime_r"        "stdlib.h;time.h" HAVE_GMTIME_R)
-check_symbol_exists("localtime_r"     "stdlib.h;time.h" HAVE_LOCALTIME_R)
 
 check_symbol_exists("gethostbyname_r" "netdb.h" HAVE_GETHOSTBYNAME_R)
 check_symbol_exists("gethostname"     "${CURL_INCLUDES}" HAVE_GETHOSTNAME)  # winsock2.h unistd.h proto/bsdsocket.h
@@ -1702,7 +1704,6 @@ check_symbol_exists("gethostname"     "${CURL_INCLUDES}" HAVE_GETHOSTNAME)  # wi
 check_symbol_exists("signal"          "signal.h" HAVE_SIGNAL)
 check_symbol_exists("strerror_r"      "stdlib.h;string.h" HAVE_STRERROR_R)
 check_symbol_exists("sigaction"       "signal.h" HAVE_SIGACTION)
-check_symbol_exists("siginterrupt"    "signal.h" HAVE_SIGINTERRUPT)
 check_symbol_exists("getaddrinfo"     "${CURL_INCLUDES};stdlib.h;string.h" HAVE_GETADDRINFO)  # ws2tcpip.h sys/socket.h netdb.h
 check_symbol_exists("getifaddrs"      "${CURL_INCLUDES};stdlib.h" HAVE_GETIFADDRS)  # ifaddrs.h
 check_symbol_exists("freeaddrinfo"    "${CURL_INCLUDES}" HAVE_FREEADDRINFO)  # ws2tcpip.h sys/socket.h netdb.h
@@ -1710,9 +1711,6 @@ check_function_exists("pipe"          HAVE_PIPE)
 check_function_exists("eventfd"       HAVE_EVENTFD)
 check_symbol_exists("getpeername"     "${CURL_INCLUDES}" HAVE_GETPEERNAME)  # winsock2.h unistd.h proto/bsdsocket.h
 check_symbol_exists("getsockname"     "${CURL_INCLUDES}" HAVE_GETSOCKNAME)  # winsock2.h unistd.h proto/bsdsocket.h
-check_function_exists("getrlimit"     HAVE_GETRLIMIT)
-check_function_exists("setlocale"     HAVE_SETLOCALE)
-check_function_exists("setrlimit"     HAVE_SETRLIMIT)
 
 if(APPLE)
   check_function_exists("mach_absolute_time" HAVE_MACH_ABSOLUTE_TIME)
@@ -1751,10 +1749,30 @@ if(NOT _ssl_enabled)
   check_symbol_exists("arc4random" "${CURL_INCLUDES};stdlib.h" HAVE_ARC4RANDOM)
 endif()
 
-check_symbol_exists("fsetxattr" "sys/xattr.h" HAVE_FSETXATTR)
-if(HAVE_FSETXATTR)
-  curl_internal_test(HAVE_FSETXATTR_5)
-  curl_internal_test(HAVE_FSETXATTR_6)
+# These features are used by the command-line tool only.
+if(BUILD_CURL_EXE)
+  check_function_exists("utimes"        HAVE_UTIMES)
+  check_function_exists("utime"         HAVE_UTIME)
+  check_function_exists("getpass_r"     HAVE_GETPASS_R)
+  check_symbol_exists("fsetxattr" "sys/xattr.h" HAVE_FSETXATTR)
+  if(HAVE_FSETXATTR)
+    curl_internal_test(HAVE_FSETXATTR_5)
+    curl_internal_test(HAVE_FSETXATTR_6)
+  endif()
+endif()
+
+# These features are used by the tests only.
+if(CURL_BUILD_TESTING)
+  check_function_exists("getppid"       HAVE_GETPPID)
+  check_function_exists("setrlimit"     HAVE_SETRLIMIT)
+  check_symbol_exists("siginterrupt"    "signal.h" HAVE_SIGINTERRUPT)
+endif()
+
+# These features are used by only the command-line tool and the tests.
+if(BUILD_CURL_EXE OR CURL_BUILD_TESTING)
+  check_symbol_exists("localtime_r"     "stdlib.h;time.h" HAVE_LOCALTIME_R)
+  check_function_exists("getrlimit"     HAVE_GETRLIMIT)
+  check_function_exists("setlocale"     HAVE_SETLOCALE)
 endif()
 
 cmake_push_check_state()
@@ -1977,13 +1995,6 @@ set(_install_cmake_dir "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 set(TARGETS_EXPORT_NAME "${PROJECT_NAME}Targets")
 set(_project_config "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake")
 set(_version_config "${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake")
-
-option(BUILD_TESTING "Build tests" ON)
-if(BUILD_TESTING AND Perl_FOUND)
-  set(CURL_BUILD_TESTING ON)
-else()
-  set(CURL_BUILD_TESTING OFF)
-endif()
 
 if(Perl_FOUND)
   set(CURL_MANPAGE "${PROJECT_BINARY_DIR}/docs/cmdline-opts/curl.1")
